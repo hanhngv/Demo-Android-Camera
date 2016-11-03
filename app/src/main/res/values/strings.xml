@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">CamApp</string>
+    <string name="button_detect">Go</string>
+    <string name="defaut_status">Not ready</string>
+</resources>
