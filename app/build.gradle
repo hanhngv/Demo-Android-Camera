@@ -24,7 +24,7 @@ android {
     }
     externalNativeBuild {
         ndkBuild{
-            path "/home/hanhnv/workspace/JNI2/jni/Android.mk"
+            path "/home/hanhnv/AndroidStudioProjects/Demo_CamApp/jni/Android.mk"
         }
     }
     productFlavors {

@@ -12,9 +12,11 @@ import android.util.Log;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import java.io.File;
@@ -146,6 +148,12 @@ public class MainActivity extends AppCompatActivity {
 
         m_status_thread = new StatusThread(this);
         m_status_thread.start();
+
+//        FrameLayout result_layout = (FrameLayout) findViewById(R.id.result_frame);
+//        ViewGroup.LayoutParams params = result_layout.getLayoutParams();
+//        params.width = 100;
+//        params.height = 100;
+        //result_layout.setLayoutParams(params);
     }
 
     @Override
