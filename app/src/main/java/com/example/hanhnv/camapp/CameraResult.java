@@ -11,6 +11,7 @@ import android.util.Log;
 import android.util.Size;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
+import android.view.ViewGroup;
 import android.widget.ImageView;
 
 import java.io.ByteArrayOutputStream;
@@ -36,6 +37,9 @@ public class CameraResult extends SurfaceView  implements SurfaceHolder.Callback
         mHolder.addCallback(this);
         // deprecated setting, but required on Android versions prior to 3.0
         mHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
+
+        mHolder.setFixedSize(200, 200);
+
     }
 
     public void surfaceCreated(SurfaceHolder holder) {
@@ -71,5 +75,7 @@ public class CameraResult extends SurfaceView  implements SurfaceHolder.Callback
         } catch (Exception e){
             Log.d(TAG, "Error starting camera preview: " + e.getMessage());
         }
+
+        ((MainActivity)m_parent).updateViewSize(false);
     }
 }

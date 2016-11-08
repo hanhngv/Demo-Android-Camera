@@ -16,7 +16,9 @@ import android.util.Log;
 import android.util.Size;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
+import android.widget.FrameLayout;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 
 import com.hanhnv.JNI2;
 
@@ -33,14 +35,13 @@ import static android.R.attr.data;
 /** A basic Camera preview class */
 public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback{
     private static final String TAG = CameraPreview.class.getSimpleName();
-    private SurfaceHolder mHolder;
-    private Camera mCamera;
+    public SurfaceHolder mHolder;
+    public Camera mCamera;
     Context m_parent;
     boolean m_be_set_size;
     byte[] m_buffer;
     ByteBuffer m_capture_buff;
     boolean m_is_has_wait_frame = false;
-    ByteBuffer m_result_buff;
     Bitmap m_result_frame;
     boolean m_is_has_result_frame = false;
     Camera.Size m_frame_size;
@@ -65,23 +66,18 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
         m_be_set_size = false;
         m_frame_size = null;
 
-        // Install a SurfaceHolder.Callback so we get notified when the
-        // underlying surface is created and destroyed.
         mHolder = getHolder();
         mHolder.addCallback(this);
-        // deprecated setting, but required on Android versions prior to 3.0
         mHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
+        //mHolder.setFixedSize(500, 500);
 
         m_running = true;
     }
 
     public void surfaceCreated(SurfaceHolder holder) {
-        // The Surface has been created, now tell the camera where to draw the preview.
         try {
             Log.d(TAG, "surface created ...");
             mCamera.setPreviewDisplay(holder);
-            //mCamera.setPreviewCallback(mPreviewCallback);
-            //mCamera.startPreview();
         } catch (IOException e) {
             Log.d(TAG, "Error setting camera preview: " + e.getMessage());
         }
@@ -90,25 +86,16 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
     public synchronized void setCapturedFlag(boolean flag){
         m_is_has_wait_frame = flag;
     }
-    public synchronized void setResultFlag(boolean flag){
-        m_is_has_result_frame = false;
-    }
     public synchronized boolean getCaptureFlag(){
         return m_is_has_wait_frame;
-    }
-    public synchronized boolean getResulFlag(){
-        return m_is_has_result_frame;
     }
 
     public Camera.PreviewCallback mPreviewCallback = new Camera.PreviewCallback() {
         @Override
         public void onPreviewFrame(byte[] data, Camera camera) {
-            MMeasureTime measure_begin = new MMeasureTime();
             ((MainActivity)m_parent).status_increaseNumCapture();
 
             if(m_capture_buff == null){
-                Log.d(TAG, "App: init capture buff");
-
                 m_capture_buff = ByteBuffer.allocate(data.length);
             }
             synchronized (m_capture_buff) {
@@ -117,33 +104,41 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
             }
 
             mCamera.addCallbackBuffer(m_buffer);
-            //mCamera.this.invalidate();
         }
     };
 
     public void surfaceDestroyed(SurfaceHolder holder) {
-        // empty. Take care of releasing the Camera preview in your activity.
+        Log.d(TAG, "Surface event: surface destroyed ...");
+
         mCamera.stopPreview();
 
-        m_running = false;
+        mCamera.stopPreview();
+        mCamera.setPreviewCallback(null);
+        mCamera.release();
+        ((MainActivity)m_parent).mCamera = null;
 
+        m_running = false;
+        try {
+            m_processThread.join();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
     }
 
     public void surfaceChanged(SurfaceHolder holder, int format, int w, int h) {
         if(mCamera == null)
             return;
-        Log.d(TAG, "surface changed ...");
+        Log.d(TAG, "Surface event: surface changed ...");
         // If your preview can change or rotate, take care of those events here.
         // Make sure to stop the preview before resizing or reformatting it.
 
         if (mHolder.getSurface() == null){
-            // preview surface does not exist
             return;
         }
 
         // stop preview before making changes
         try {
-            mCamera.stopPreview();
+            //mCamera.stopPreview();
         } catch (Exception e){
             // ignore: tried to stop a non-existent preview
         }
@@ -153,28 +148,6 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
 
         // start preview with new settings
         try {
-            if(!m_be_set_size) {
-                Camera.Parameters parameters = mCamera.getParameters();
-
-                parameters.setPreviewSize(640, 480);
-                parameters.setPreviewFrameRate(30);
-                //parameters.setPreviewFormat(ImageFormat.RGB_565);
-                mCamera.setParameters(parameters);
-                m_be_set_size = true;
-
-                parameters = mCamera.getParameters();
-                m_frame_size = parameters.getPreviewSize();
-            }
-            //mCamera.setPreviewCallback(mPreviewCallback);
-            mCamera.setPreviewCallbackWithBuffer(mPreviewCallback);
-            m_buffer = new byte[460800];
-            mCamera.addCallbackBuffer(m_buffer);
-            mCamera.setPreviewDisplay(mHolder);
-            mCamera.startPreview();
-
-            m_processThread = new ProcessThread(this, (MainActivity) m_parent);
-            m_processThread.start();
-
         } catch (Exception e){
             Log.d(TAG, "Error starting camera preview: " + e.getMessage());
         }
@@ -194,10 +167,8 @@ class ProcessThread extends Thread{
 
     public void run() {
         MMeasureTime measure_time_begin = new MMeasureTime();
-        //IntBuffer rgba = IntBuffer.allocate(0);
         boolean is_init_buffer = false;
 
-       // ByteBuffer tmp_buff = ByteBuffer.allocate(0);
         boolean is_init_buffer_tmp = false;
         int width = -1;
         int height = -1;
@@ -214,7 +185,6 @@ class ProcessThread extends Thread{
                     m_parent.setCapturedFlag(false);
 
                     if (is_init_buffer_tmp == false) {
-                        //tmp_buff = ByteBuffer.allocate(m_parent.m_capture_buff.array().length);
                         m_yuv_buf = ByteBuffer.allocate(m_parent.m_capture_buff.array().length);
                         is_init_buffer_tmp = true;
                     }
@@ -227,7 +197,6 @@ class ProcessThread extends Thread{
 
                     if (is_init_buffer == false) {
                         m_rgba_buf = IntBuffer.allocate((int) (m_parent.m_capture_buff.array().length / 1.5));
-                        //m_yuv_buf = ByteBuffer.allocate(m_parent.m_capture_buff.array().length);
                         is_init_buffer = true;
                     }
 
@@ -244,7 +213,6 @@ class ProcessThread extends Thread{
                         // ============================================================
                         // --------------------- Convert YUV to RGBA
                         MMeasureTime begin_convert = new MMeasureTime();
-                        //YUV_NV21_TO_RGB(m_rgba_buf.array(), tmp_buff.array(), width, height);
                         JNI2.YuvNV21toRGB(m_rgba_buf.array(), m_yuv_buf.array(), width, height);
                         int time_process = begin_convert.untilNow();
                         m_draw_activity.status_addTimeConvert(time_process);
@@ -264,18 +232,17 @@ class ProcessThread extends Thread{
                         // ============================================================
                         // ---------------- Convert to bitmap format
                         MMeasureTime begin_bitmap = new MMeasureTime();
-                        //Bitmap bitmap = Bitmap.createBitmap(m_rgba_buf.array(), new_width, new_height, Bitmap.Config.ARGB_8888);
                         m_rgba_buf.rewind();
                         if (new_width > new_height) {
                             m_result_landscape.copyPixelsFromBuffer(m_rgba_buf);
-                            m_draw_activity.setResult(m_result_landscape, new_width, new_height);
+                            m_draw_activity.setResult(m_result_landscape);
 
                             time_process = begin_bitmap.untilNow();
                             m_draw_activity.status_addTimeBitmap(time_process);
                             //Log.d(TAG, "Render time: " + time_process);
                         } else {
                             m_result_portrait.copyPixelsFromBuffer(m_rgba_buf);
-                            m_draw_activity.setResult(m_result_portrait, new_width, new_height);
+                            m_draw_activity.setResult(m_result_portrait);
 
                             time_process = begin_bitmap.untilNow();
                             m_draw_activity.status_addTimeBitmap(time_process);
@@ -296,9 +263,8 @@ class ProcessThread extends Thread{
                         // ============================================================
                         // --------------------- Convert YUV to RGBA
                         MMeasureTime begin_convert = new MMeasureTime();
-                        //YUV_NV21_TO_RGB(m_rgba_buf.array(), m_yuv_buf.array(), width, height);
                         JNI2.YuvNV21toRGB(m_rgba_buf.array(), m_yuv_buf.array(), new_width, new_height);
-                        //YUV_NV21_TO_RGB(m_rgba_buf.array(), m_yuv_buf.array(), new_width, new_width);
+                        //Log.d("Processing time CVT: ", "" + begin_convert.untilNow());
                         time_process = begin_convert.untilNow();
                         m_draw_activity.status_addTimeConvert(time_process);
                         //Log.d(TAG, "Convert time: " + time_process);
@@ -306,18 +272,17 @@ class ProcessThread extends Thread{
                         // ============================================================
                         // ---------------- Convert to bitmap format
                         MMeasureTime begin_bitmap = new MMeasureTime();
-                        //Bitmap bitmap = Bitmap.createBitmap(m_rgba_buf.array(), new_width, new_height, Bitmap.Config.ARGB_8888);
                         m_rgba_buf.rewind();
                         if (new_width > new_height) {
                             m_result_landscape.copyPixelsFromBuffer(m_rgba_buf);
-                            m_draw_activity.setResult(m_result_landscape, new_width, new_height);
+                            m_draw_activity.setResult(m_result_landscape);
 
                             time_process = begin_bitmap.untilNow();
                             m_draw_activity.status_addTimeBitmap(time_process);
                             //Log.d(TAG, "Render time: " + time_process);
                         } else {
                             m_result_portrait.copyPixelsFromBuffer(m_rgba_buf);
-                            m_draw_activity.setResult(m_result_portrait, new_width, new_height);
+                            m_draw_activity.setResult(m_result_portrait);
 
                             time_process = begin_bitmap.untilNow();
                             m_draw_activity.status_addTimeBitmap(time_process);
@@ -327,10 +292,17 @@ class ProcessThread extends Thread{
                     measure_time_begin.update();
 
                     try {
-                        Thread.sleep(2);
+                        Thread.sleep(1);
                     } catch (InterruptedException e) {
                         e.printStackTrace();
                     }
+                }
+            }
+            else{
+                try {
+                    Thread.sleep(2);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
                 }
             }
         }
@@ -368,55 +340,34 @@ class ProcessThread extends Thread{
         }
 
         if(cur_mode == PROCESSING_MODE.YUV) {
-
+            String typeProcess = "";
+            long start = System.currentTimeMillis();
             if (cur_state == PROCESSING_CODE.Rotate_left) {
                 JNI2.YuvNV21RotateLeft(m_yuv_buf.array(), width, height);
+                typeProcess = "Rorate Left: ";
                 new_size.m_width = height;
                 new_size.m_height = width;
             } else if (cur_state == PROCESSING_CODE.Rotate_right) {
                 JNI2.YuvNV21RotateRight(m_yuv_buf.array(), width, height);
+                typeProcess = "Rotate Right";
                 new_size.m_width = height;
                 new_size.m_height = width;
             } else if (cur_state == PROCESSING_CODE.Rotate_down) {
+                typeProcess = "Rotate Down";
                 JNI2.YuvNV21RotateDown(m_yuv_buf.array(), width, height);
             } else if (cur_state == PROCESSING_CODE.Flip_Horizontal) {
                 JNI2.YuvNV21FlipHorizontal(m_yuv_buf.array(), width, height);
+                typeProcess = "Rotate Horizontal";
             } else if (cur_state == PROCESSING_CODE.Flip_Vertical) {
                 JNI2.YuvNV21FlipVertical(m_yuv_buf.array(), width, height);
+                typeProcess = "Rotate Vertical";
             }
+            long timeProcess = System.currentTimeMillis() - start;
+            Log.d("CameraPreview", typeProcess + " Down time process: " + timeProcess);
         }
 
         return new_size;
     }
-
-    public static void YUV_NV21_TO_RGB(int[] argb, byte[] yuv, int width, int height) {
-        final int frameSize = width * height;
-
-        final int ii = 0;
-        final int ij = 0;
-        final int di = +1;
-        final int dj = +1;
-
-        int a = 0;
-        for (int i = 0, ci = ii; i < height; ++i, ci += di) {
-            for (int j = 0, cj = ij; j < width; ++j, cj += dj) {
-                int y = (0xff & ((int) yuv[ci * width + cj]));
-                int v = (0xff & ((int) yuv[frameSize + (ci >> 1) * width + (cj & ~1) + 0]));
-                int u = (0xff & ((int) yuv[frameSize + (ci >> 1) * width + (cj & ~1) + 1]));
-                y = y < 16 ? 16 : y;
-
-                int r = (int) (1.164f * (y - 16) + 1.596f * (v - 128));
-                int g = (int) (1.164f * (y - 16) - 0.813f * (v - 128) - 0.391f * (u - 128));
-                int b = (int) (1.164f * (y - 16) + 2.018f * (u - 128));
-
-                r = r < 0 ? 0 : (r > 255 ? 255 : r);
-                g = g < 0 ? 0 : (g > 255 ? 255 : g);
-                b = b < 0 ? 0 : (b > 255 ? 255 : b);
-
-                argb[a++] = 0xff000000 | (r << 16) | (g << 8) | b;
-            }
-        }
-    };
 
 }
 

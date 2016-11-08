@@ -12,8 +12,6 @@ public class JNI2 {
         System.loadLibrary("NativeHanhNV");
     }
 
-    public native String stringFromJNI();
-    public native int square(int edge);
     public static native int YuvNV21toRGB(int[]rgba_result, byte[] yuv, int width, int height);
     public static native int YuvNV21FlipHorizontal(byte[]yuv, int width, int height);
     public static native int YuvNV21FlipVertical(byte[]yuv, int width, int height);
@@ -25,4 +23,5 @@ public class JNI2 {
     public static native int rotateLeft(int[]rgba_img, int width, int height);
     public static native int rotateRight(int[]rgba_img, int width, int height);
     public static native int rotateDown(int[]rgba_img, int width, int height);
+    public static native int releaseBuffer();
 }

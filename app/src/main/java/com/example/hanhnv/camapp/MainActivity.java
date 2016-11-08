@@ -9,6 +9,7 @@ import android.os.Environment;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.Gravity;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
@@ -35,6 +36,9 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
 import android.hardware.Camera;
+
+import static android.R.attr.subMenuArrow;
+import static android.R.attr.width;
 import static android.hardware.Camera.getNumberOfCameras;
 import android.hardware.Camera.PictureCallback;
 import android.hardware.Camera.ShutterCallback;
@@ -46,22 +50,11 @@ import android.widget.Toast;
 import com.hanhnv.JNI2;
 
 public class MainActivity extends AppCompatActivity {
-
-    // Used to load the 'native-lib' library on application startup.
 //    static {
 //        //System.loadLibrary("native-lib");
 //        System.loadLibrary("NativeHanhNV");
 //    }
 
-    /**
-     * A native method that is implemented by the 'native-lib' native library,
-     * which is packaged with this application.
-     */
-//    public native String stringFromJNI();
-//    public native int square(int edge);
-
-    public final static String EXTRA_MESSAGE = "com.example.myfirstapp.MESSAGE";
-    public final int m_release_statis_time = 2000;
     public final int m_max_statis_object = 20;
 
     protected int m_time_process = 0;
@@ -86,6 +79,7 @@ public class MainActivity extends AppCompatActivity {
     protected float m_avg_time_process = 0;
 
     public boolean m_running = false;
+    protected boolean m_cur_rorate = true;
 
     private static final String TAG = MainActivity.class.getSimpleName();
 
@@ -107,6 +101,8 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        Log.d(TAG, "Activity event: onCreate");
+
         setContentView(R.layout.activity_main);
 
         m_cur_status = getString(R.string.defaut_status);
@@ -121,9 +117,6 @@ public class MainActivity extends AppCompatActivity {
         else
             m_cur_status = "Not ready";
 
-        // Example of a call to a native method
-        //TextView tv = (TextView) findViewById(R.id.sample_text);
-        //tv.setText(stringFromJNI());
         setStatus(m_cur_status);
 
         // Create an instance of Camera
@@ -149,16 +142,88 @@ public class MainActivity extends AppCompatActivity {
         m_status_thread = new StatusThread(this);
         m_status_thread.start();
 
-//        FrameLayout result_layout = (FrameLayout) findViewById(R.id.result_frame);
-//        ViewGroup.LayoutParams params = result_layout.getLayoutParams();
-//        params.width = 100;
-//        params.height = 100;
-        //result_layout.setLayoutParams(params);
+//        FrameLayout preview_layout = (FrameLayout)findViewById(R.id.camera_preview);
+//        LinearLayout.LayoutParams params_preview = (LinearLayout.LayoutParams)preview_layout.getLayoutParams();
+//
+//        FrameLayout result_layout = (FrameLayout)findViewById(R.id.result_frame);
+//        LinearLayout.LayoutParams params_result = (LinearLayout.LayoutParams) result_layout.getLayoutParams();
+//
+//        params_result.width = params_preview.width;
+//        params_result.height = params_preview.height;
+//
+//        result_layout.setLayoutParams(params_result);
+
+        //.join()
+    }
+
+    @Override
+    protected void onDestroy(){
+        super.onDestroy();
+
+        Log.d(TAG, "Activity event: onDestroy");
+    }
+
+    @Override
+    protected void onStart(){
+        super.onStart();
+        Log.d(TAG, "Activity event: onStart");
+
+        mPreview = new CameraPreview(this, mCamera);
+        FrameLayout preview = (FrameLayout) findViewById(R.id.camera_preview);
+        preview.removeAllViews();
+        preview.addView(mPreview);
+
+        mResult = new CameraResult(this);
+        FrameLayout preview_result = (FrameLayout)findViewById(R.id.result_frame);
+        preview_result.removeAllViews();
+        preview_result.addView(mResult);
+
+
+        m_status_thread = new StatusThread(this);
+        m_status_thread.start();
+
+        if(mCamera == null) {
+            mCamera = getCameraInstance();
+            mPreview.mCamera = mCamera;
+        }
+        mPreview.mCamera = mCamera;
+        if(!mPreview.m_be_set_size) {
+            Camera.Parameters parameters = mCamera.getParameters();
+
+            parameters.setPreviewSize(640, 480);
+            parameters.setPreviewFrameRate(30);
+            //parameters.setPreviewFormat(ImageFormat.RGB_565);
+            mCamera.setParameters(parameters);
+            mPreview.m_be_set_size = true;
+
+            parameters = mCamera.getParameters();
+            mPreview.m_frame_size = parameters.getPreviewSize();
+        }
+
+        mCamera.setPreviewCallbackWithBuffer(mPreview.mPreviewCallback);
+        for(int i = 0; i < 3; i++) {
+            mPreview.m_buffer = new byte[460800];
+            mCamera.addCallbackBuffer(mPreview.m_buffer);
+        }
+        try {
+            mCamera.setPreviewDisplay(mPreview.mHolder);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        mCamera.startPreview();
+
+        mPreview.m_processThread = new ProcessThread(mPreview, this);
+        mPreview.m_processThread.start();
+
+        //m_status_thread = new StatusThread(this);
+        //m_status_thread.start();
     }
 
     @Override
     protected void onStop(){
         super.onStop();
+        Log.d(TAG, "Activity event: onStop");
+
         if(mCamera != null) {
             try {
                 mCamera.stopPreview();
@@ -166,28 +231,36 @@ public class MainActivity extends AppCompatActivity {
                 mCamera.release();
                 mCamera = null;
 
-//                while (m_status_thread.isAlive())
-//                {
-//                    Thread.sleep(100);
-//                }
                 m_running = false;
-//                if(m_status_thread.isAlive())
-//                    m_status_thread.interrupt();
-                //if(m_status_thread.isAlive())
-                    //m_status_thread.stop();
+
+                //m_status_thread.join();
+                mPreview.m_processThread.join();
+
+                JNI2.releaseBuffer();
             }
             catch (Exception e){
-
             }
         }
     }
 
-    public void captureOnClick(View view){
-        Log.d(TAG, "Click capture button");
-
-        CaptureThread captureThread = new CaptureThread(this);
-        captureThread.start();
+    @Override
+    protected void onRestart(){
+        super.onRestart();
+        Log.d(TAG, "Activity event: onRestart");
     }
+
+    @Override
+    protected void onResume(){
+        super.onResume();
+        Log.d(TAG, "Activity event: onResume");
+    }
+
+    @Override
+    protected void onPause(){
+        super.onPause();
+        Log.d(TAG, "Activity event: onPause");
+    }
+
     public void flipOnClick(View view){
         synchronized (mPreview.m_cur_process_state){
             if(mPreview.m_cur_process_state == PROCESSING_CODE.Flip_Vertical){
@@ -211,31 +284,56 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    public synchronized void updateViewSize(final boolean rotate){
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+
+                if(rotate == m_cur_rorate)
+                    return;
+
+                FrameLayout preview_layout = (FrameLayout)findViewById(R.id.camera_preview);
+
+                FrameLayout result_layout = (FrameLayout)findViewById(R.id.result_frame);
+                LinearLayout.LayoutParams params_result = (LinearLayout.LayoutParams) result_layout.getLayoutParams();
+
+                if(rotate){
+                    params_result.width = preview_layout.getHeight();
+                    params_result.height = preview_layout.getWidth();
+                    params_result.gravity = Gravity.CENTER;
+                }
+                else {
+                    params_result.width = preview_layout.getWidth();
+                    params_result.height = preview_layout.getHeight();
+                    params_result.gravity = Gravity.BOTTOM;
+                }
+
+                m_cur_rorate = rotate;
+
+                result_layout.setLayoutParams(params_result);
+            }
+        });
+    }
+
     public synchronized void setStatus(final String status){
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
                 m_ctrl_status.setText(status);
-            }
+        }
         });
     }
 
-    public synchronized void setResultView(final Bitmap bitmap){
-           runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                m_ctrl_result.setImageBitmap(bitmap);
-
-                status_increaseNumDraw();
-            }
-        });
-    }
-
-    public synchronized void setResult(final Bitmap bmp, final int frame_width, final int frame_heigth){
+    public synchronized void setResult(final Bitmap bmp){
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
                 if(bmp != null){
+                    if(bmp.getHeight() > bmp.getWidth())
+                        updateViewSize(true);
+                    else
+                        updateViewSize(false);
+
                     Canvas canvas = mResult.mHolder.lockCanvas();
                     if(canvas != null){
                         canvas.drawBitmap(Bitmap.createScaledBitmap(bmp, canvas.getWidth(), canvas.getHeight(), false), 0, 0, null);
@@ -246,34 +344,6 @@ public class MainActivity extends AppCompatActivity {
             }
         });
     }
-
-    public PictureCallback mPicture = new PictureCallback() {
-        @Override
-        public void onPictureTaken(byte[] data, Camera camera) {
-            Camera.Parameters parameters = camera.getParameters();
-
-            File pictureFile = getOutputMediaFile(MEDIA_TYPE_IMAGE);
-            if (pictureFile == null){
-                Log.d(TAG, "Error creating media file, check storage permissions: ");// +
-                        //e.getMessage());
-                return;
-            }
-
-            try {
-                FileOutputStream fos = new FileOutputStream(pictureFile);
-                fos.write(data);
-                fos.close();
-
-                m_num_capture++;
-                setStatus("Num capture: " + m_native_lib.square(m_num_capture));
-
-            } catch (FileNotFoundException e) {
-                Log.d(TAG, "File not found: " + e.getMessage());
-            } catch (IOException e) {
-                Log.d(TAG, "Error accessing file: " + e.getMessage());
-            }
-        }
-    };
 
     /// ------------------------------------------------------------------------------------------
     /// -----------------------------------------  STATUS ----------------------------------------
@@ -456,42 +526,6 @@ public class MainActivity extends AppCompatActivity {
         }
 
         return cam;
-    }
-}
-//
-//class TimeStatis{
-//  public
-//};
-
-class CaptureThread extends Thread{
-    Context m_parent;
-
-    CaptureThread(Context context){
-        m_parent = context;
-    }
-
-    public void run(){
-        MainActivity parent = (MainActivity)m_parent;
-        Thread.currentThread().getName();
-        parent.setStatus("Begin capture!");
-
-        MMeasureTime measure_time_begin = new MMeasureTime();
-
-        int count = 0;
-        while(count < 5) {
-            if(measure_time_begin.untilNow() > 2000){
-                // get an image from the camera
-                parent.mCamera.takePicture(null, null, parent.mPicture);
-                count++;
-
-                measure_time_begin.update();
-            }
-            try {
-                Thread.sleep(10);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-        }
     }
 }
 

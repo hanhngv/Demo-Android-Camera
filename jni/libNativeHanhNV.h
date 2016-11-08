@@ -11,14 +11,6 @@
 extern "C" {
 #endif
 
-JNIEXPORT jint JNICALL Java_com_hanhnv_JNI2_stringFromJNI(
-        JNIEnv *env,
-        jobject);
-
-JNIEXPORT jint JNICALL Java_com_hanhnv_JNI2_square(
-        JNIEnv *env,
-        jobject,
-        jint num);
 
 JNIEXPORT jint JNICALL Java_com_hanhnv_JNI2_YuvNV21toRGB(
         JNIEnv *env,
@@ -63,6 +55,11 @@ JNIEXPORT jint JNICALL Java_com_hanhnv_JNI2_YuvNV21RotateDown(
 		jint width,
 		jint height);
 
+JNIEXPORT jint JNICALL Java_com_hanhnv_JNI2_releaseBuffer(
+		JNIEnv *env,
+		jobject);
+
+
 JNIEXPORT jint JNICALL Java_com_hanhnv_JNI2_flipHorizontal(
 		JNIEnv *env,
 		jobject,
@@ -98,28 +95,6 @@ JNIEXPORT jint JNICALL Java_com_hanhnv_JNI2_rotateDown(
 		jint width,
 		jint height);
 
-//public static native int YuvFlipHorizontal(byte[]yuv, int width, int height);
-//public static native int YuvFlipVertical(byte[]yuv, int width, int height);
-//public static native int YuvRotateLeft(byte[]yuv, int width, int height);
-//public static native int YuvRotateRight(byte[]yuv, int width, int height);
-//public static native int YuvRotateDown(byte[]yuv, int width, int height);
-//public static native int rotateRight(int[]rgba_img, int width, int height);
-//public static native int rotateLeft(int[]rgba_img, int width, int height);
-//public static native int flipHorizontal(int[]rgba_img, int width, int height);
-//public static native int flipVertical(int[]rgba_img, int width, int height);
-//public static native int RotateRGB(int[] rgba_img, int width, int height);
-//public static native void Test2(int[] rgb_result, byte[]raw_data);
-
-JNIEXPORT jintArray JNICALL Java_com_hanhnv_JNI2_Test(
-		JNIEnv *env,
-		jobject,
-		jbyteArray data);
-
-JNIEXPORT void JNICALL Java_com_hanhnv_JNI2_Test2(
-		JNIEnv *env,
-		jobject,
-		jintArray result,
-		jbyteArray raw);
 
 #ifdef __cplusplus
 }
