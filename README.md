@@ -1,2 +1,2 @@
 # Demo_CamApp
-A demo application about real time processing data received from an Android camera
+A demo application about real time processing data received from an Android camera, using native method.
