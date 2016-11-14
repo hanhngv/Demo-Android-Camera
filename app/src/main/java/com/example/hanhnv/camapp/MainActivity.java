@@ -113,7 +113,7 @@ public class MainActivity extends AppCompatActivity {
 
         // Create an instance of Camera
         mCamera = getCameraInstance();
-        List<Camera.Size> sizes = mCamera.getParameters().getSupportedPreviewSizes();
+        //List<Camera.Size> sizes = mCamera.getParameters().getSupportedPreviewSizes();
 
         m_list_time_convert = new ArrayList<Integer>();
         m_list_time_bitmap = new ArrayList<Integer>();
