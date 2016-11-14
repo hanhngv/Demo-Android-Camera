@@ -14,9 +14,9 @@ public class MMeasureTime {
         begin = System.nanoTime();
     }
 
-    // Milisecond
+    // Microsecond
     public int untilNow(){
-        return (int)((System.nanoTime() - begin) / 1000000);
+        return (int)((System.nanoTime() - begin) / 1000);
     }
 
     public void update(){

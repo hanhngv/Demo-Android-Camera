@@ -311,12 +311,15 @@ class ProcessThread extends Thread{
     protected MSize processFrame(int width, int height){
         MSize new_size = new MSize(width, height);
         PROCESSING_CODE cur_state;
+
         synchronized (m_parent.m_cur_process_state) {
             cur_state = m_parent.m_cur_process_state;
         }
+
         PROCESSING_MODE cur_mode;
         synchronized (m_parent.m_cur_color_mode){
             cur_mode = m_parent.m_cur_color_mode;
+            //cur_mode = PROCESSING_MODE.RGB;
         }
 
         if(cur_mode == PROCESSING_MODE.RGB) {
@@ -340,30 +343,30 @@ class ProcessThread extends Thread{
         }
 
         if(cur_mode == PROCESSING_MODE.YUV) {
-            String typeProcess = "";
-            long start = System.currentTimeMillis();
+            //String typeProcess = "";
+            //long start = System.currentTimeMillis();
             if (cur_state == PROCESSING_CODE.Rotate_left) {
                 JNI2.YuvNV21RotateLeft(m_yuv_buf.array(), width, height);
-                typeProcess = "Rorate Left: ";
+                //typeProcess = "Rorate Left: ";
                 new_size.m_width = height;
                 new_size.m_height = width;
             } else if (cur_state == PROCESSING_CODE.Rotate_right) {
                 JNI2.YuvNV21RotateRight(m_yuv_buf.array(), width, height);
-                typeProcess = "Rotate Right";
+                //typeProcess = "Rotate Right";
                 new_size.m_width = height;
                 new_size.m_height = width;
             } else if (cur_state == PROCESSING_CODE.Rotate_down) {
-                typeProcess = "Rotate Down";
+                //typeProcess = "Rotate Down";
                 JNI2.YuvNV21RotateDown(m_yuv_buf.array(), width, height);
             } else if (cur_state == PROCESSING_CODE.Flip_Horizontal) {
                 JNI2.YuvNV21FlipHorizontal(m_yuv_buf.array(), width, height);
-                typeProcess = "Rotate Horizontal";
+                //typeProcess = "Rotate Horizontal";
             } else if (cur_state == PROCESSING_CODE.Flip_Vertical) {
                 JNI2.YuvNV21FlipVertical(m_yuv_buf.array(), width, height);
-                typeProcess = "Rotate Vertical";
+                //typeProcess = "Rotate Vertical";
             }
-            long timeProcess = System.currentTimeMillis() - start;
-            Log.d("CameraPreview", typeProcess + " Down time process: " + timeProcess);
+//            long timeProcess = System.currentTimeMillis() - start;
+//            Log.d("CameraPreview", typeProcess + " Down time process: " + timeProcess);
         }
 
         return new_size;

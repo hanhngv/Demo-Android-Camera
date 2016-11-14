@@ -178,7 +178,6 @@ JNIEXPORT jint JNICALL Java_com_hanhnv_JNI2_YuvNV21FlipHorizontal(
         GLOBAL_buffer = new char[new_buff_size];
         GLOBAL_buffer_size = new_buff_size;
         __android_log_write(ANDROID_LOG_ERROR, "JNI log", "resize");//Or ANDROID_LOG_INFO, ...
-
     }
 
     int step = width;
@@ -233,7 +232,7 @@ JNIEXPORT jint JNICALL Java_com_hanhnv_JNI2_YuvNV21FlipVertical(
         }
     }
 
-    int data_length = env->GetArrayLength(yuv);
+    int data_length = width * height * 1.5;
 
     unsigned char char_buff[2];
     int begin_index = width * height;
@@ -267,7 +266,6 @@ JNIEXPORT jint JNICALL Java_com_hanhnv_JNI2_YuvNV21RotateLeft(
         jint height){
 
     jbyte* yuv_data = env->GetByteArrayElements(yuv, 0);
-    //jbyte* yuv_data = (jbyte *)(env->GetPrimitiveArrayCritical(yuv, 0));
 
     int new_width = height;
     int new_height = width;
@@ -292,8 +290,7 @@ JNIEXPORT jint JNICALL Java_com_hanhnv_JNI2_YuvNV21RotateLeft(
     }
 
     // ------------ UV channel ----------------------
-    int data_length = env->GetArrayLength(yuv);
-    memcpy(GLOBAL_buffer, yuv_data + frame_size, data_length - frame_size);
+    memcpy(GLOBAL_buffer, yuv_data + frame_size, frame_size * 0.5);
 
     int uv_width = width;
     int uv_new_width = height;
@@ -320,9 +317,7 @@ JNIEXPORT jint JNICALL Java_com_hanhnv_JNI2_YuvNV21RotateRight(
         jbyteArray yuv,
         jint width,
         jint height){
-    __android_log_write(ANDROID_LOG_ERROR, "JNI log Right time:", "begin");
     jbyte* yuv_data = env->GetByteArrayElements(yuv, 0);
-    __android_log_write(ANDROID_LOG_ERROR, "JNI log Right time:", "import");
 
     int new_width = height;
     int new_height = width;
@@ -337,7 +332,6 @@ JNIEXPORT jint JNICALL Java_com_hanhnv_JNI2_YuvNV21RotateRight(
         GLOBAL_buffer_size = new_buff_size;
     }
     memcpy(GLOBAL_buffer, yuv_data, frame_size);
-    __android_log_write(ANDROID_LOG_ERROR, "JNI log Right time:", "memcpy 1");
 
     for(int r = 0; r < new_height; r++){
         for (int c = 0; c < new_width; c++) {
@@ -346,9 +340,7 @@ JNIEXPORT jint JNICALL Java_com_hanhnv_JNI2_YuvNV21RotateRight(
     }
 
     // ------------ UV channel ----------------------
-    int data_length = env->GetArrayLength(yuv);
-    memcpy(GLOBAL_buffer, yuv_data + frame_size, data_length - frame_size);
-    __android_log_write(ANDROID_LOG_ERROR, "JNI log Right time:", "memcpy 2");
+    memcpy(GLOBAL_buffer, yuv_data + frame_size, frame_size * 0.5);
 
     int uv_width = width;
     int uv_new_width = height;
@@ -362,11 +354,8 @@ JNIEXPORT jint JNICALL Java_com_hanhnv_JNI2_YuvNV21RotateRight(
         }
     }
 
-    __android_log_write(ANDROID_LOG_ERROR, "JNI log Right time:", "processed");
     env->SetByteArrayRegion(yuv, 0, env->GetArrayLength(yuv), yuv_data);
-    __android_log_write(ANDROID_LOG_ERROR, "JNI log Right time:", "saved");
     env->ReleaseByteArrayElements(yuv, yuv_data, 0);
-    __android_log_write(ANDROID_LOG_ERROR, "JNI log Right time:", "release");
 
     return 0;
 }
@@ -378,18 +367,17 @@ JNIEXPORT jint JNICALL Java_com_hanhnv_JNI2_YuvNV21RotateDown(
         jint width,
         jint height){
 
-    char buff[20];
-    time_t begin = clock();
-    int processing_time = 0;
+    //char buff[20];
+    //time_t begin = clock();
+    //int processing_time = 0;
     jbyte* yuv_data = env->GetByteArrayElements(yuv, 0);
-    processing_time = (clock() - begin) * 1000 / CLOCKS_PER_SEC;
-    snprintf(buff, sizeof(buff), "%d", processing_time);
-    __android_log_write(ANDROID_LOG_ERROR, "JNI log Down begin:", buff);
-    begin = clock();
+//    processing_time = (clock() - begin) * 1000 / CLOCKS_PER_SEC;
+//    snprintf(buff, sizeof(buff), "%d", processing_time);
+//    begin = clock();
 
     unsigned char tmp_char;
     int first = 0;
-    int last = width * height;
+    int last = width * height - 1;
     while (first < last){
         tmp_char = yuv_data[first];
         yuv_data[first] = yuv_data[last];
@@ -401,8 +389,10 @@ JNIEXPORT jint JNICALL Java_com_hanhnv_JNI2_YuvNV21RotateDown(
 
     unsigned char char_buff[2];
 
+
     first = width * height;
-    last = env->GetArrayLength(yuv) - 2;
+    last = width * height * 1.5 - 2;
+    //last = env->GetArrayLength(yuv) - 2;
 
     while (first < last){
         memcpy(char_buff, yuv_data + first, 2);
@@ -412,23 +402,23 @@ JNIEXPORT jint JNICALL Java_com_hanhnv_JNI2_YuvNV21RotateDown(
         first += 2;
         last -= 2;
     }
-    processing_time = (clock() - begin) * 1000/ CLOCKS_PER_SEC;
-    snprintf(buff, sizeof(buff), "%d", processing_time);
-    __android_log_write(ANDROID_LOG_ERROR, "JNI log Down time process ", buff);
-    begin = clock();
+//    processing_time = (clock() - begin) * 1000/ CLOCKS_PER_SEC;
+//    snprintf(buff, sizeof(buff), "%d", processing_time);
+//    __android_log_write(ANDROID_LOG_ERROR, "JNI log Down time process ", buff);
+//    begin = clock();
 
     env->SetByteArrayRegion(yuv, 0, env->GetArrayLength(yuv), yuv_data);
 
-    processing_time = (clock() - begin) * 1000 / CLOCKS_PER_SEC;
-    snprintf(buff, sizeof(buff), "%d", processing_time);
-    __android_log_write(ANDROID_LOG_ERROR, "JNI log Down time saved ", buff);
-    begin = clock();
+//    processing_time = (clock() - begin) * 1000 / CLOCKS_PER_SEC;
+//    snprintf(buff, sizeof(buff), "%d", processing_time);
+//    __android_log_write(ANDROID_LOG_ERROR, "JNI log Down time saved ", buff);
+//    begin = clock();
 
     env->ReleaseByteArrayElements(yuv, yuv_data, 0);
 
-    processing_time = (clock() - begin) * 1000 / CLOCKS_PER_SEC;
-    snprintf(buff, sizeof(buff), "%d", processing_time);
-    __android_log_write(ANDROID_LOG_ERROR, "JNI log Down time release ", buff);
+//    processing_time = (clock() - begin) * 1000 / CLOCKS_PER_SEC;
+//    snprintf(buff, sizeof(buff), "%d", processing_time);
+//    __android_log_write(ANDROID_LOG_ERROR, "JNI log Down time release ", buff);
 
     return 0;
 }

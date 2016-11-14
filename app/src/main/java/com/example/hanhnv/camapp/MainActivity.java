@@ -62,7 +62,6 @@ public class MainActivity extends AppCompatActivity {
     protected float m_capture_fps = 0;
     protected float m_show_fps = 0;
     protected int m_num_capture = 0;
-    protected int m_num_cur_capture = 0;
     protected int m_num_frame_cur_process = 0;
     protected int m_num_frame_cur_draw = 0;
     protected MMeasureTime m_time_begin_measure_capture;
@@ -74,12 +73,8 @@ public class MainActivity extends AppCompatActivity {
     protected List<Integer> m_list_time_bitmap;
     protected List<Integer> m_list_time_process;
 
-    protected float m_avg_time_convert = 0;
-    protected float m_avg_time_bitmap = 0;
-    protected float m_avg_time_process = 0;
-
     public boolean m_running = false;
-    protected boolean m_cur_rorate = true;
+    protected boolean m_cur_rotate = true;
 
     private static final String TAG = MainActivity.class.getSimpleName();
 
@@ -93,10 +88,8 @@ public class MainActivity extends AppCompatActivity {
     protected TextView m_ctrl_status;
     protected ImageView m_ctrl_result;
 
-    private Lock m_lock_status;
     StatusThread m_status_thread;
 
-    JNI2 m_native_lib;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -108,8 +101,7 @@ public class MainActivity extends AppCompatActivity {
         m_cur_status = getString(R.string.defaut_status);
         m_ctrl_status = (TextView)findViewById(R.id.status_text);
         m_ctrl_result = (ImageView)findViewById(R.id.result_view);
-        m_lock_status = new ReentrantLock();
-        m_native_lib = new JNI2();
+
         m_running = true;
 
         if(checkCameraHardware(this))
@@ -121,6 +113,7 @@ public class MainActivity extends AppCompatActivity {
 
         // Create an instance of Camera
         mCamera = getCameraInstance();
+        List<Camera.Size> sizes = mCamera.getParameters().getSupportedPreviewSizes();
 
         m_list_time_convert = new ArrayList<Integer>();
         m_list_time_bitmap = new ArrayList<Integer>();
@@ -139,21 +132,8 @@ public class MainActivity extends AppCompatActivity {
         m_time_begin_measure_process = new MMeasureTime();
         m_time_begin_measure_draw = new MMeasureTime();
 
-        m_status_thread = new StatusThread(this);
-        m_status_thread.start();
-
-//        FrameLayout preview_layout = (FrameLayout)findViewById(R.id.camera_preview);
-//        LinearLayout.LayoutParams params_preview = (LinearLayout.LayoutParams)preview_layout.getLayoutParams();
-//
-//        FrameLayout result_layout = (FrameLayout)findViewById(R.id.result_frame);
-//        LinearLayout.LayoutParams params_result = (LinearLayout.LayoutParams) result_layout.getLayoutParams();
-//
-//        params_result.width = params_preview.width;
-//        params_result.height = params_preview.height;
-//
-//        result_layout.setLayoutParams(params_result);
-
-        //.join()
+        //m_status_thread = new StatusThread(this);
+        //m_status_thread.start();
     }
 
     @Override
@@ -178,6 +158,15 @@ public class MainActivity extends AppCompatActivity {
         preview_result.removeAllViews();
         preview_result.addView(mResult);
 
+        if(m_status_thread != null){
+            m_running = false;
+            try {
+                m_status_thread.join();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+        m_running = true;
 
         m_status_thread = new StatusThread(this);
         m_status_thread.start();
@@ -191,6 +180,7 @@ public class MainActivity extends AppCompatActivity {
             Camera.Parameters parameters = mCamera.getParameters();
 
             parameters.setPreviewSize(640, 480);
+            //parameters.setPreviewSize(1280, 720);
             parameters.setPreviewFrameRate(30);
             //parameters.setPreviewFormat(ImageFormat.RGB_565);
             mCamera.setParameters(parameters);
@@ -202,7 +192,7 @@ public class MainActivity extends AppCompatActivity {
 
         mCamera.setPreviewCallbackWithBuffer(mPreview.mPreviewCallback);
         for(int i = 0; i < 3; i++) {
-            mPreview.m_buffer = new byte[460800];
+            mPreview.m_buffer = new byte[1382400];
             mCamera.addCallbackBuffer(mPreview.m_buffer);
         }
         try {
@@ -233,7 +223,7 @@ public class MainActivity extends AppCompatActivity {
 
                 m_running = false;
 
-                //m_status_thread.join();
+                m_status_thread.join();
                 mPreview.m_processThread.join();
 
                 JNI2.releaseBuffer();
@@ -289,7 +279,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void run() {
 
-                if(rotate == m_cur_rorate)
+                if(rotate == m_cur_rotate)
                     return;
 
                 FrameLayout preview_layout = (FrameLayout)findViewById(R.id.camera_preview);
@@ -308,7 +298,7 @@ public class MainActivity extends AppCompatActivity {
                     params_result.gravity = Gravity.BOTTOM;
                 }
 
-                m_cur_rorate = rotate;
+                m_cur_rotate = rotate;
 
                 result_layout.setLayoutParams(params_result);
             }
@@ -348,15 +338,6 @@ public class MainActivity extends AppCompatActivity {
     /// ------------------------------------------------------------------------------------------
     /// -----------------------------------------  STATUS ----------------------------------------
     /// ------------------------------------------------------------------------------------------
-    public synchronized void status_updateNumcapture(int num_capture){
-        m_num_capture = num_capture;
-    }
-    public synchronized void status_updateTimeProcess(int time_process){
-        m_time_process = time_process;
-    }
-    public synchronized void status_updateTimeDraw(int time_draw){
-        m_time_draw = time_draw;
-    }
     public synchronized void status_updateCaptureFps(float capture_fps){m_capture_fps = capture_fps; }
     public synchronized void status_updateDrawFps(float draw_fps){
         m_show_fps = draw_fps;
@@ -413,7 +394,8 @@ public class MainActivity extends AppCompatActivity {
             }
         }
 
-        avg /= m_max_statis_object;
+        // milisecond
+        avg /= m_max_statis_object * 1000;
 
         return avg;
     }
@@ -429,7 +411,8 @@ public class MainActivity extends AppCompatActivity {
             }
         }
 
-        avg /= m_max_statis_object;
+        // milisecond
+        avg /= m_max_statis_object * 1000;
 
         return avg;
     }
@@ -445,7 +428,8 @@ public class MainActivity extends AppCompatActivity {
             }
         }
 
-        avg /= m_max_statis_object;
+        // milisecond
+        avg /= m_max_statis_object * 1000;
 
         return avg;
     }
@@ -481,7 +465,6 @@ public class MainActivity extends AppCompatActivity {
         int second = calendar.get(Calendar.SECOND);
         int mili = calendar.get(Calendar.MILLISECOND);
 
-        //String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
         String timeStamp = year +""+ month +""+ day + "_" + hour +""+ min +""+ second + "_" + mili;
         File mediaFile;
         if (type == MEDIA_TYPE_IMAGE){
@@ -548,50 +531,47 @@ class StatusThread extends Thread{
         parent.m_time_begin_measure_process.update();
         parent.m_time_begin_measure_draw.update();
 
+        MMeasureTime last_update = new MMeasureTime();
+
         while(((MainActivity) m_parent).m_running == true) {
-            // Capture
-            int time_measure = parent.m_time_begin_measure_capture.untilNow();
-            if(time_measure > 1000){
-                int num_cur_capture = parent.status_getNumcapture();
-                parent.status_updateCaptureFps(1000 * num_cur_capture / (float)time_measure);
+            if(last_update.untilNow() > 500000) {
+                // Capture
+                long time_measure = parent.m_time_begin_measure_capture.untilNow();
+                if (time_measure > 1000000) {
+                    int num_cur_capture = parent.status_getNumcapture();
+                    parent.status_updateCaptureFps(1000000 * num_cur_capture / (float) time_measure);
 
-                parent.m_time_begin_measure_capture.update();
-                parent.status_resetNumCapture();
+                    parent.m_time_begin_measure_capture.update();
+                    parent.status_resetNumCapture();
+                }
+
+                // Show
+                time_measure = parent.m_time_begin_measure_draw.untilNow();
+                if (time_measure > 1000000) {
+                    int num_cur_draw = parent.status_getNumDraw();
+                    parent.status_updateDrawFps(1000000 * num_cur_draw / (float) time_measure);
+
+                    parent.m_time_begin_measure_draw.update();
+                    parent.status_resetNumDraw();
+                }
+
+                String status = new String();
+                status += "Capture: " + double_format.format(parent.status_getCaptureFps()) + " fps  ";
+                status += "Draw: " + double_format.format(parent.status_getDrawFps()) + " fps  ";
+                status += "Convert: " + double_format.format(parent.status_updateTimeConvert()) + "  ";
+                status += "Process: " + double_format.format(parent.status_updateTimeProcess()) + "  ";
+                status += "Render: " + double_format.format(parent.status_updateTimeBitmap()) + "  ";
+
+                parent.setStatus(status);
+
+                last_update.update();
             }
-
-            // Process
-//            int time_measure = parent.m_time_begin_measure_process.untilNow();
-//            if(time_measure > 1000){
-//                parent.status_updateCaptureFps(1000 * parent.status_getNumcapture() / (float)time_measure);
-//
-//                parent.m_time_begin_measure_process.update();
-//                parent.status_resetNumProcess();
-//            }
-
-            // Show
-            time_measure = parent.m_time_begin_measure_draw.untilNow();
-            if(time_measure > 1000){
-                int num_cur_draw = parent.status_getNumDraw();
-                Log.d(TAG, "Num draw: " + num_cur_draw);
-                parent.status_updateDrawFps(1000 * num_cur_draw / (float)time_measure);
-
-                parent.m_time_begin_measure_draw.update();
-                parent.status_resetNumDraw();
-            }
-
-            String status = new String();
-            status += "Capture: " + double_format.format(parent.status_getCaptureFps()) + "  ";
-            status += "Draw: " + double_format.format(parent.status_getDrawFps()) + "  ";
-            status += "Convert: " + double_format.format(parent.status_updateTimeConvert()) + "  ";
-            status += "Process: " + double_format.format(parent.status_updateTimeProcess()) + "  ";
-            status += "Render: " + double_format.format(parent.status_updateTimeBitmap()) + "  ";
-
-            parent.setStatus(status);
-
-            try {
-                Thread.sleep(400);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
+            else{
+                try {
+                    Thread.sleep(50);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
             }
         }
     }
