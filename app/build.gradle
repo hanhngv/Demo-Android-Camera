@@ -1,5 +1,6 @@
 apply plugin: 'com.android.application'
 
+
 android {
     compileSdkVersion 24
     buildToolsVersion "24.0.3"
@@ -16,6 +17,44 @@ android {
             }
         }
     }
+
+    flavorDimensions "abi"
+
+    productFlavors {
+        fat {
+            flavorDimension "abi"
+            ndk {
+                abiFilters "x86", "armeabi-v7a", "armeabi"
+                versionCode = 0;
+            }
+        }
+        arm {
+            flavorDimension "abi"
+            ndk {
+                abiFilter "armeabi"
+                versionCode = 1;
+            }
+        }
+        armv7a {
+            flavorDimension "abi"
+            ndk {
+                abiFilter "armeabi-v7a"
+                versionCode = 3;
+            }
+        }
+        x86 {
+            flavorDimension "abi"
+            ndk {
+                abiFilter "x86"
+                versionCode = 6;
+            }
+        }
+    }
+
+sourceSets {
+    main.jniLibs.srcDirs = ['libs']
+    test.jniLibs.srcDirs = ['libs']
+  }
     buildTypes {
         release {
             minifyEnabled false
@@ -27,6 +66,7 @@ android {
             path "/home/hanhnv/AndroidStudioProjects/Demo_CamApp/jni/Android.mk"
         }
     }
+
     productFlavors {
     }
 }

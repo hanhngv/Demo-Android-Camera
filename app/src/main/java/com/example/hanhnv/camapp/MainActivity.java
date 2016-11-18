@@ -5,6 +5,7 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.os.Environment;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -34,6 +35,7 @@ import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.jar.JarInputStream;
 
 import android.hardware.Camera;
 
@@ -48,6 +50,7 @@ import static android.provider.MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE;
 import android.widget.Toast;
 
 import com.hanhnv.JNI2;
+import com.hanhnv.X264;
 
 public class MainActivity extends AppCompatActivity {
 //    static {
@@ -87,8 +90,11 @@ public class MainActivity extends AppCompatActivity {
 
     protected TextView m_ctrl_status;
     protected ImageView m_ctrl_result;
+    protected TextView m_ctrl_record_timer;
 
     StatusThread m_status_thread;
+
+    MMeasureTime m_time_begin_encode;
 
 
     @Override
@@ -101,6 +107,11 @@ public class MainActivity extends AppCompatActivity {
         m_cur_status = getString(R.string.defaut_status);
         m_ctrl_status = (TextView)findViewById(R.id.status_text);
         m_ctrl_result = (ImageView)findViewById(R.id.result_view);
+        m_ctrl_record_timer = (TextView)findViewById(R.id.time_record);
+
+        m_ctrl_record_timer.setTextSize(50);
+        //m_ctrl_record_timer.setTextColor(Color.argb(0, 0, 0, 0));
+        m_ctrl_record_timer.setAlpha(0);
 
         m_running = true;
 
@@ -131,7 +142,7 @@ public class MainActivity extends AppCompatActivity {
         m_time_begin_measure_capture = new MMeasureTime();
         m_time_begin_measure_process = new MMeasureTime();
         m_time_begin_measure_draw = new MMeasureTime();
-
+        m_time_begin_encode = new MMeasureTime();
         //m_status_thread = new StatusThread(this);
         //m_status_thread.start();
     }
@@ -168,6 +179,7 @@ public class MainActivity extends AppCompatActivity {
         }
         m_running = true;
 
+        m_time_begin_encode.update();
         m_status_thread = new StatusThread(this);
         m_status_thread.start();
 
@@ -274,6 +286,51 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    public void encodeOnClick(View view){
+        Log.d("Event log: ", "begin encode");
+        //m_running = false;
+        //mPreview.m_running = false;
+
+//        try {
+//            m_status_thread.join();
+//        } catch (InterruptedException e) {
+//            e.printStackTrace();
+//        }
+//        Log.d("Event log: ", "stop status thread");
+//        try {
+//            mPreview.m_processThread.join();
+//        } catch (InterruptedException e) {
+//            e.printStackTrace();
+//        }
+//        Log.d("Event log: ", "finish encode");
+//        JNI2.releaseBuffer();
+
+        FrameLayout preview_result = (FrameLayout)findViewById(R.id.result_frame);
+        preview_result.setAlpha(0.5f);
+
+        Button button_flip = (Button)findViewById(R.id.button_flip);
+        button_flip.setEnabled(false);
+        Button button_rotate = (Button)findViewById(R.id.button_rotate);
+        button_rotate.setEnabled(false);
+        Button button_encode = (Button)findViewById(R.id.button_encode);
+        button_encode.setEnabled(false);
+
+        synchronized (mPreview.m_cur_process_state){
+                mPreview.m_cur_process_state = PROCESSING_CODE.Encode;
+        }
+//        m_ctrl_record_timer.setTextColor(Color.argb(1, 255, 0, 0));
+        m_ctrl_record_timer.setAlpha(1);
+
+        m_time_begin_encode.update();
+
+        //TextView time_record = (TextView)findViewById(R.id.time_record);
+        //time_record.setTextSize(50);
+        //time_record.setText("00:00");
+
+//        JNI2 jni2 = new JNI2();
+//        jni2.ENCODEinit(640, 480, 5);
+    }
+
     public synchronized void updateViewSize(final boolean rotate){
         runOnUiThread(new Runnable() {
             @Override
@@ -286,6 +343,7 @@ public class MainActivity extends AppCompatActivity {
 
                 FrameLayout result_layout = (FrameLayout)findViewById(R.id.result_frame);
                 LinearLayout.LayoutParams params_result = (LinearLayout.LayoutParams) result_layout.getLayoutParams();
+//                LinearLayout.LayoutParams params_result = (LinearLayout.LayoutParams) result_layout.getLayoutParams();
 
                 if(rotate){
                     params_result.width = preview_layout.getHeight();
@@ -331,6 +389,15 @@ public class MainActivity extends AppCompatActivity {
                     }
                     status_increaseNumDraw();
                 }
+            }
+        });
+    }
+
+    public synchronized void setRecordTimer(final String timer_string){
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                m_ctrl_record_timer.setText(timer_string);
             }
         });
     }
@@ -530,10 +597,13 @@ class StatusThread extends Thread{
         parent.m_time_begin_measure_capture.update();
         parent.m_time_begin_measure_process.update();
         parent.m_time_begin_measure_draw.update();
+        parent.m_time_begin_encode.update();
 
         MMeasureTime last_update = new MMeasureTime();
 
+
         while(((MainActivity) m_parent).m_running == true) {
+
             if(last_update.untilNow() > 500000) {
                 // Capture
                 long time_measure = parent.m_time_begin_measure_capture.untilNow();
@@ -561,6 +631,19 @@ class StatusThread extends Thread{
                 status += "Convert: " + double_format.format(parent.status_updateTimeConvert()) + "  ";
                 status += "Process: " + double_format.format(parent.status_updateTimeProcess()) + "  ";
                 status += "Render: " + double_format.format(parent.status_updateTimeBitmap()) + "  ";
+
+                long time_record = ((MainActivity) m_parent).m_time_begin_encode.untilNow();
+                long minute = time_record / 60000000;
+                long second = (time_record % 60000000) / 1000000;
+                String record_timer = new String();
+                record_timer = minute + ":" + second;
+                ((MainActivity) m_parent).setRecordTimer(record_timer);
+
+//                JNI2 jni2 = new JNI2();
+                //jni2.ENCODEinit(640, 480, 2);
+
+                //JNI2.setDumy(7);
+                //status += "Render: " + JNI2.getDumy() + "  ";
 
                 parent.setStatus(status);
 

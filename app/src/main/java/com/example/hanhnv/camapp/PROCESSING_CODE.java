@@ -7,6 +7,7 @@ public enum PROCESSING_CODE{
     Rotate_none,
     Rotate_left,
     Rotate_down,
-    Rotate_right
+    Rotate_right,
+    Encode
 }
 

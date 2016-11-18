@@ -31,6 +31,7 @@ import java.util.Calendar;
 import java.util.List;
 
 import static android.R.attr.data;
+import static com.example.hanhnv.camapp.PROCESSING_CODE.Encode;
 
 /** A basic Camera preview class */
 public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback{
@@ -57,6 +58,7 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
     ProcessThread m_processThread;
 
     public boolean m_running = false;
+    public boolean m_recording = false;
 
     public CameraPreview(Context context, Camera camera) {
         super(context);
@@ -154,11 +156,22 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
     }
 }
 
+class EncodeThread extends Thread{
+    MainActivity m_draw_activity;
+    MMeasureTime m_time_begin_record = new MMeasureTime();
+    public void run(){
+
+    }
+}
+
 class ProcessThread extends Thread{
     CameraPreview m_parent;
     MainActivity m_draw_activity;
     IntBuffer m_rgba_buf = IntBuffer.allocate(0);
     ByteBuffer m_yuv_buf = ByteBuffer.allocate(0);
+
+    Bitmap m_result_landscape = Bitmap.createBitmap(4, 4, Bitmap.Config.ARGB_8888);
+    Bitmap m_result_portrait = Bitmap.createBitmap(4, 4, Bitmap.Config.ARGB_8888);
 
     ProcessThread(CameraPreview context, MainActivity draw_activity){
         m_parent = context;
@@ -173,10 +186,8 @@ class ProcessThread extends Thread{
         int width = -1;
         int height = -1;
 
-        Bitmap m_result_landscape = Bitmap.createBitmap(4, 4, Bitmap.Config.ARGB_8888);
-        Bitmap m_result_portrait = Bitmap.createBitmap(4, 4, Bitmap.Config.ARGB_8888);
-
         String TAG = this.getClass().getSimpleName();
+        PROCESSING_CODE cur_state;
 
         while (m_parent.m_running) {
             if (measure_time_begin.untilNow() > 5) {
@@ -208,87 +219,18 @@ class ProcessThread extends Thread{
                         m_result_portrait = Bitmap.createBitmap(m_rgba_buf.array(), height, width, Bitmap.Config.ARGB_8888);
                     }
 
-
-                    if (m_parent.m_cur_color_mode == PROCESSING_MODE.RGB) {
-                        // ============================================================
-                        // --------------------- Convert YUV to RGBA
-                        MMeasureTime begin_convert = new MMeasureTime();
-                        JNI2.YuvNV21toRGB(m_rgba_buf.array(), m_yuv_buf.array(), width, height);
-                        int time_process = begin_convert.untilNow();
-                        m_draw_activity.status_addTimeConvert(time_process);
-                        //Log.d(TAG, "Convert time: " + time_process);
-
-                        // ============================================================
-                        // --------------------------- Process
-                        MMeasureTime begin_process = new MMeasureTime();
-                        MSize new_size = processFrame(width, height);
-                        int new_height = new_size.m_height;
-                        int new_width = new_size.m_width;
-
-                        time_process = begin_process.untilNow();
-                        m_draw_activity.status_addTimeProcess(time_process);
-                        //Log.d(TAG, "Process time: " + time_process);
-
-                        // ============================================================
-                        // ---------------- Convert to bitmap format
-                        MMeasureTime begin_bitmap = new MMeasureTime();
-                        m_rgba_buf.rewind();
-                        if (new_width > new_height) {
-                            m_result_landscape.copyPixelsFromBuffer(m_rgba_buf);
-                            m_draw_activity.setResult(m_result_landscape);
-
-                            time_process = begin_bitmap.untilNow();
-                            m_draw_activity.status_addTimeBitmap(time_process);
-                            //Log.d(TAG, "Render time: " + time_process);
-                        } else {
-                            m_result_portrait.copyPixelsFromBuffer(m_rgba_buf);
-                            m_draw_activity.setResult(m_result_portrait);
-
-                            time_process = begin_bitmap.untilNow();
-                            m_draw_activity.status_addTimeBitmap(time_process);
-                            //Log.d(TAG, "Render time: " + time_process);
-                        }
-                    }else{
-                        // ============================================================
-                        // --------------------------- Process
-                        MMeasureTime begin_process = new MMeasureTime();
-                        MSize new_size = processFrame(width, height);
-                        int new_height = new_size.m_height;
-                        int new_width = new_size.m_width;
-
-                        int time_process = begin_process.untilNow();
-                        m_draw_activity.status_addTimeProcess(time_process);
-                        //Log.d(TAG, "Process time: " + time_process);
-
-                        // ============================================================
-                        // --------------------- Convert YUV to RGBA
-                        MMeasureTime begin_convert = new MMeasureTime();
-                        JNI2.YuvNV21toRGB(m_rgba_buf.array(), m_yuv_buf.array(), new_width, new_height);
-                        //Log.d("Processing time CVT: ", "" + begin_convert.untilNow());
-                        time_process = begin_convert.untilNow();
-                        m_draw_activity.status_addTimeConvert(time_process);
-                        //Log.d(TAG, "Convert time: " + time_process);
-
-                        // ============================================================
-                        // ---------------- Convert to bitmap format
-                        MMeasureTime begin_bitmap = new MMeasureTime();
-                        m_rgba_buf.rewind();
-                        if (new_width > new_height) {
-                            m_result_landscape.copyPixelsFromBuffer(m_rgba_buf);
-                            m_draw_activity.setResult(m_result_landscape);
-
-                            time_process = begin_bitmap.untilNow();
-                            m_draw_activity.status_addTimeBitmap(time_process);
-                            //Log.d(TAG, "Render time: " + time_process);
-                        } else {
-                            m_result_portrait.copyPixelsFromBuffer(m_rgba_buf);
-                            m_draw_activity.setResult(m_result_portrait);
-
-                            time_process = begin_bitmap.untilNow();
-                            m_draw_activity.status_addTimeBitmap(time_process);
-                            //Log.d(TAG, "Render time: " + time_process);
-                        }
+                    synchronized (m_parent.m_cur_process_state) {
+                        cur_state = m_parent.m_cur_process_state;
                     }
+
+                    if (cur_state != PROCESSING_CODE.Encode) {
+                        realtimeProcess(width, height);
+
+                    }
+                    else{
+                        realtimeEncode(width, height);
+                    }
+
                     measure_time_begin.update();
 
                     try {
@@ -306,6 +248,94 @@ class ProcessThread extends Thread{
                 }
             }
         }
+    }
+
+    protected void realtimeProcess(int width, int height){
+        if (m_parent.m_cur_color_mode == PROCESSING_MODE.RGB) {
+            // ============================================================
+            // --------------------- Convert YUV to RGBA
+            MMeasureTime begin_convert = new MMeasureTime();
+            JNI2.YuvNV21toRGB(m_rgba_buf.array(), m_yuv_buf.array(), width, height);
+            int time_process = begin_convert.untilNow();
+            m_draw_activity.status_addTimeConvert(time_process);
+            //Log.d(TAG, "Convert time: " + time_process);
+
+            // ============================================================
+            // --------------------------- Process
+            MMeasureTime begin_process = new MMeasureTime();
+            MSize new_size = processFrame(width, height);
+            int new_height = new_size.m_height;
+            int new_width = new_size.m_width;
+
+            time_process = begin_process.untilNow();
+            m_draw_activity.status_addTimeProcess(time_process);
+            //Log.d(TAG, "Process time: " + time_process);
+
+            // ============================================================
+            // ---------------- Convert to bitmap format
+            MMeasureTime begin_bitmap = new MMeasureTime();
+            m_rgba_buf.rewind();
+            if (new_width > new_height) {
+                m_result_landscape.copyPixelsFromBuffer(m_rgba_buf);
+                m_draw_activity.setResult(m_result_landscape);
+
+                time_process = begin_bitmap.untilNow();
+                m_draw_activity.status_addTimeBitmap(time_process);
+                //Log.d(TAG, "Render time: " + time_process);
+            } else {
+                m_result_portrait.copyPixelsFromBuffer(m_rgba_buf);
+                m_draw_activity.setResult(m_result_portrait);
+
+                time_process = begin_bitmap.untilNow();
+                m_draw_activity.status_addTimeBitmap(time_process);
+                //Log.d(TAG, "Render time: " + time_process);
+            }
+        }else{
+            // ============================================================
+            // --------------------------- Process
+            MMeasureTime begin_process = new MMeasureTime();
+            MSize new_size = processFrame(width, height);
+            int new_height = new_size.m_height;
+            int new_width = new_size.m_width;
+
+            int time_process = begin_process.untilNow();
+            m_draw_activity.status_addTimeProcess(time_process);
+            //Log.d(TAG, "Process time: " + time_process);
+
+            // ============================================================
+            // --------------------- Convert YUV to RGBA
+            MMeasureTime begin_convert = new MMeasureTime();
+            JNI2.YuvNV21toRGB(m_rgba_buf.array(), m_yuv_buf.array(), new_width, new_height);
+            //Log.d("Processing time CVT: ", "" + begin_convert.untilNow());
+            time_process = begin_convert.untilNow();
+            m_draw_activity.status_addTimeConvert(time_process);
+            //Log.d(TAG, "Convert time: " + time_process);
+
+            // ============================================================
+            // ---------------- Convert to bitmap format
+            MMeasureTime begin_bitmap = new MMeasureTime();
+            m_rgba_buf.rewind();
+            if (new_width > new_height) {
+                m_result_landscape.copyPixelsFromBuffer(m_rgba_buf);
+                m_draw_activity.setResult(m_result_landscape);
+
+                time_process = begin_bitmap.untilNow();
+                m_draw_activity.status_addTimeBitmap(time_process);
+                //Log.d(TAG, "Render time: " + time_process);
+            } else {
+                m_result_portrait.copyPixelsFromBuffer(m_rgba_buf);
+                m_draw_activity.setResult(m_result_portrait);
+
+                time_process = begin_bitmap.untilNow();
+                m_draw_activity.status_addTimeBitmap(time_process);
+                //Log.d(TAG, "Render time: " + time_process);
+            }
+        }
+
+    }
+
+    protected void realtimeEncode(int width, int height){
+
     }
 
     protected MSize processFrame(int width, int height){
@@ -387,4 +417,17 @@ class MSize{
 enum PROCESSING_MODE{
     RGB,
     YUV
+}
+
+enum  ENCODE_LEVEL{
+    ULTRA_FAST,// 0
+    SUPER_FAST,
+    VERY_FAST,
+    FASTER,
+    FAST,
+    MEDIUM,
+    SLOW,
+    SLOWER,
+    VERY_SLOW,
+    PLACEBO
 }

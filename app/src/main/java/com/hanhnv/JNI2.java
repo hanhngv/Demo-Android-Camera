@@ -9,6 +9,8 @@ import java.nio.IntBuffer;
 public class JNI2 {
     static {
         //System.loadLibrary("native-lib");
+//        System.loadLibrary("libx264.so.148");
+        System.loadLibrary("x264");
         System.loadLibrary("NativeHanhNV");
     }
 
@@ -24,4 +26,9 @@ public class JNI2 {
     public static native int rotateRight(int[]rgba_img, int width, int height);
     public static native int rotateDown(int[]rgba_img, int width, int height);
     public static native int releaseBuffer();
+
+    public native int ENCODEinit(int width, int heigth, int encode_level);
+
+    // public static native int init();
+    //public
 }

@@ -1,7 +1,20 @@
+
 #include "libNativeHanhNV.h"
 #include <string.h>
-#include <time.h>
-#include <android/log.h>
+
+
+//#include <x264.h>
+
+//#include "dumy.h"
+
+//#include <DumyLib (copy)/dumy.h>
+
+//#include "x264/include/x264.h"
+//#include "DumyLib/include/dumy.h"
+
+
+//#include <time.h>
+//#include <android/log.h>
 
 char* GLOBAL_buffer = NULL;
 int GLOBAL_buffer_size = 0;
@@ -9,12 +22,14 @@ int GLOBAL_buffer_size = 0;
 extern "C"
 JNIEXPORT jint JNICALL Java_com_hanhnv_JNI2_YuvNV21toRGB(
         JNIEnv *env,
-        jobject,
+        jobject jobj,
         jintArray rgba_result,
         jbyteArray yuv,
         jint width,
         jint height){
     int frameSize = width * height;
+
+    //int s = Java_com_hanhnv_X264_add(env, jobj, 2, 3);
 
     int ii = 0;
     int ij = 0;
@@ -54,6 +69,7 @@ JNIEXPORT jint JNICALL Java_com_hanhnv_JNI2_YuvNV21toRGB(
             result_data[a++] = 0xff000000 | (r << 16) | (g << 8) | b;
         }
     }
+
 
 
     // ===========================================================================================
@@ -556,8 +572,23 @@ JNIEXPORT jint JNICALL Java_com_hanhnv_JNI2_rotateDown(
         result_data[max_index - i] = tmp;
     }
 
-
     env->SetIntArrayRegion(rgba_img, 0, env->GetArrayLength(rgba_img), result_data);
+
+    return 0;
+}
+
+
+/// ================================================================ //
+///          					ENCODE/DECODE
+/// ================================================================ //
+JNIEXPORT jint JNICALL Java_com_hanhnv_JNI2_ENCODEinit(
+        JNIEnv *env,
+        jobject,
+        jint width,
+        jint height,
+        jint encode_level){
+
+    m_codec.init(width, height, encode_level);
 
     return 0;
 }

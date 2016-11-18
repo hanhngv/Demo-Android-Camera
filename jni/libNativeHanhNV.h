@@ -2,6 +2,8 @@
 #include <jni.h>
 /* Header for class JNISample */
 
+#include "MCodec.h"
+
 #include <stdio.h>
 #include <android/log.h>
 
@@ -11,6 +13,11 @@
 extern "C" {
 #endif
 
+MCodec m_codec;
+
+/// ================================================================ //
+///
+/// ================================================================ //
 
 JNIEXPORT jint JNICALL Java_com_hanhnv_JNI2_YuvNV21toRGB(
         JNIEnv *env,
@@ -95,6 +102,15 @@ JNIEXPORT jint JNICALL Java_com_hanhnv_JNI2_rotateDown(
 		jint width,
 		jint height);
 
+/// ================================================================ //
+///          					ENCODE/DECODE
+/// ================================================================ //
+JNIEXPORT jint JNICALL Java_com_hanhnv_JNI2_ENCODEinit(
+		JNIEnv *env,
+		jobject,
+		jint width,
+		jint height,
+		jint encode_level);
 
 #ifdef __cplusplus
 }
